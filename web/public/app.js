@@ -74,6 +74,94 @@ async function initCapture() {
   });
   $("#submit").addEventListener("click", onSubmit);
   $("#share").addEventListener("click", onShare);
+
+  // Harvest panel: tab switching + handlers
+  document.querySelectorAll(".tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const which = btn.dataset.tab;
+      document.querySelectorAll(".tab-panel").forEach((p) => {
+        p.classList.toggle("hidden", p.dataset.panel !== which);
+      });
+    });
+  });
+  $("#gh-harvest").addEventListener("click", () => onHarvest("github"));
+  $("#cal-harvest").addEventListener("click", () => onHarvest("calendar"));
+}
+
+function setHarvestStatus(msg, cls = "") {
+  const el = $("#harvest-status");
+  el.textContent = msg;
+  el.className = `status ${cls}`;
+  el.classList.toggle("hidden", !msg);
+}
+
+async function onHarvest(source) {
+  let body;
+  if (source === "github") {
+    const username = $("#gh-username").value.trim();
+    if (!username) { setHarvestStatus("Enter a GitHub username.", "err"); return; }
+    body = { username, max: 5, process_max: 3 };
+    $("#gh-harvest").disabled = true;
+  } else {
+    const text = $("#cal-text").value.trim();
+    if (!text) { setHarvestStatus("Paste at least one calendar line.", "err"); return; }
+    body = { text, process_max: 3 };
+    $("#cal-harvest").disabled = true;
+  }
+  setHarvestStatus(`Harvesting from ${source}…`);
+  $("#harvest-results").innerHTML = "";
+
+  try {
+    const res = await fetch(`/api/harvest/${source}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      setHarvestStatus(`Harvest failed: ${json.error || res.status}${json.detail ? " — " + json.detail : ""}`, "err");
+      return;
+    }
+    setHarvestStatus(
+      `✓ Harvested ${json.harvested} signal${json.harvested === 1 ? "" : "s"} from ${source}; generated ${json.processed} Proof card${json.processed === 1 ? "" : "s"}`,
+      "ok"
+    );
+    renderHarvestResults(json);
+  } catch (e) {
+    setHarvestStatus(`Network error: ${e.message}`, "err");
+  } finally {
+    $("#gh-harvest").disabled = false;
+    $("#cal-harvest").disabled = false;
+  }
+}
+
+function renderHarvestResults(json) {
+  const container = $("#harvest-results");
+  container.innerHTML = "";
+  // Show generated cards (already validated by server)
+  for (const r of json.cards) {
+    if (r.error) {
+      const div = document.createElement("div");
+      div.className = "card harvest-error";
+      div.innerHTML = `<p class="muted">Skipped <code>${escapeHtml(r.source_id)}</code>: ${escapeHtml(r.error)}</p>`;
+      container.appendChild(div);
+      continue;
+    }
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `<div class="card proof-card harvest-proof" data-card-id="${escapeAttr(r.id)}">${renderProofCard(r.output.proof_card)}</div>`;
+    container.appendChild(wrap.firstElementChild);
+  }
+  // List remaining un-processed raw signals so the user sees what's there
+  const unprocessed = json.items.slice(json.cards.length);
+  if (unprocessed.length) {
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `<h2>Not processed yet (${unprocessed.length})</h2>
+      <ul class="raw-list">${unprocessed.map((it) => `<li>${escapeHtml(it.text.slice(0, 200))}</li>`).join("")}</ul>`;
+    container.appendChild(div);
+  }
 }
 
 function setStatus(msg, cls = "") {

@@ -90,3 +90,41 @@ production deployment.
 - Treat the Gemini 8/10 as "blocked by environment, not by contract."
 - Do not block M1 exit on it. Re-measure on a non-venue network post-hackathon
   and update this entry with the production-network number.
+
+---
+
+## 2026-05-16 — Signal harvesters: GitHub real, Calendar via text seam
+
+**Context:** ~20-minute window before submission, after M2/M3. Question: can
+we ingest captures from real signal sources (GitHub, Google/Outlook Calendar)
+instead of only typed input?
+
+**Observation:**
+
+- **GitHub** works with zero OAuth — the public events endpoint
+  (`/users/:user/events/public`) returns push / PR / review / issue / create
+  events without auth. Rate limit is 60 req/hr per IP unauthenticated, which
+  is plenty for a single harvest call. Optional `GITHUB_TOKEN` env var lifts
+  the limit to 5000/hr. **Shipped** as `src/harvesters/github.mjs`.
+
+- **Google Calendar / Outlook** both require OAuth + client registration +
+  consent screen. **Not feasible** to ship cleanly in 20 minutes. Instead,
+  shipped `src/harvesters/calendar.mjs` that accepts pasted text lines — same
+  `{ harvest }` contract, same downstream pipeline. Real OAuth integrations
+  can be added later as drop-in modules behind the same interface.
+
+**Implication:**
+- The architecture supports multi-source capture: harvesters are pure
+  modules that emit `{ source_id, text, image_caption, occurred_at }`, which
+  the server then loops through the existing LLM provider. No special-casing.
+- Adding Google/Outlook later is a "write the OAuth flow + a `harvest()`
+  function" job; the schema, prompt, validator, and UI rendering are already
+  source-agnostic.
+- Demo-day note: GitHub harvest worked against `torvalds` from the venue and
+  produced a real Proof card from a real public event. Calendar harvester
+  produces three cards from three pasted lines.
+
+**Action:** Captured the OAuth follow-ups under "What's next" in
+`SUBMISSION.md`. ADR-0001 follow-ups now include "Google Calendar harvester
+(OAuth)" and "Microsoft Graph harvester (OAuth)" alongside the existing
+P3 Supabase / TypeScript migration items.

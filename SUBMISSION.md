@@ -99,8 +99,31 @@ Full detail: [`docs/project/milestones.md`](docs/project/milestones.md).
 
 ---
 
+## Signal harvesters (no typing required)
+
+Kinetic isn't only typed captures. The same LLM contract runs against any
+source that emits a `{ text, image_caption }` shape. v0 ships two:
+
+- **GitHub** (live, no auth) — `POST /api/harvest/github`
+  → pulls a user's public events (pushes, PRs, reviews, issues, branch
+  creates) and ghostwrites a Proof card for each. Tested live against
+  `torvalds` from the venue.
+  See [`docs/screenshots/05-harvest-github.png`](docs/screenshots/05-harvest-github.png).
+- **Calendar** (text seam, OAuth-free) — `POST /api/harvest/calendar`
+  → paste one event per line (with optional `[ISO]` timestamp prefix).
+  See [`docs/screenshots/06-harvest-calendar.png`](docs/screenshots/06-harvest-calendar.png).
+
+Google Calendar and Microsoft Outlook (Graph) are the next harvesters to plug
+into this interface — the OAuth flow is the only missing piece. Rationale in
+[`docs/knowledge/shared-observations.md`](docs/knowledge/shared-observations.md).
+
+---
+
 ## What's next (post-hackathon)
 
+- **Google Calendar harvester** (OAuth) into the existing `src/harvesters/` contract.
+- **Microsoft Graph (Outlook) harvester** (OAuth) — same contract.
+- **Slack export harvester** (read activity from `slack_export.json`).
 - Migrate from `new-product-discovery` composition to
   `node-web-saas-postgres` + a Supabase domain module (ADR-0001's P3 plan).
 - Wire Supabase Auth + Postgres for real persistence (currently in-memory).

@@ -250,3 +250,42 @@ button:disabled { opacity: 0.6; cursor: progress; }
 /* --- Proof share page tweaks --- */
 body.proof .shell { padding-top: 32px; }
 body.proof .ftr { border-top: 1px solid var(--line); padding-top: 16px; }
+
+/* --- Harvest panel --- */
+.harvest-card code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--accent-2);
+}
+.tab-row { gap: 6px; margin-top: 4px; }
+.tab {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+}
+.tab.active {
+  background: var(--bg-soft);
+  color: var(--text);
+  border-color: var(--accent-2);
+}
+.tab-panel { margin-top: 4px; }
+.harvest-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+.harvest-results .proof-card { margin-bottom: 0; }
+.harvest-results .card { margin-bottom: 0; }
+.harvest-error { border-color: var(--err); }
+.raw-list { padding: 0; margin: 0; list-style: none; }
+.raw-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+.raw-list li:first-child { border-top: none; }

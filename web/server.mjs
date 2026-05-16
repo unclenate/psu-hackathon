@@ -147,6 +147,71 @@ function handleCard(_req, res, id) {
   send(res, 200, card);
 }
 
+async function handleHarvest(req, res, sourceName, provider, schema) {
+  const raw = await readBody(req);
+  let body;
+  try { body = JSON.parse(raw); } catch { return send(res, 400, { error: "invalid JSON" }); }
+
+  let harvester;
+  try {
+    harvester = await import(`../src/harvesters/${sourceName}.mjs`);
+  } catch {
+    return send(res, 404, { error: `unknown source: ${sourceName}` });
+  }
+
+  let items;
+  try {
+    items = await harvester.harvest(body);
+  } catch (e) {
+    return send(res, 502, { error: "harvest failed", detail: String(e.message || e) });
+  }
+
+  // Process each harvested item through the LLM contract; cap to keep demo snappy.
+  const PROCESS_CAP = Math.min(items.length, Number(body.process_max) || 3);
+  const results = [];
+  for (const item of items.slice(0, PROCESS_CAP)) {
+    const t0 = Date.now();
+    let output;
+    try {
+      output = await provider.process({ text: item.text, image_caption: item.image_caption || "" });
+    } catch (e) {
+      results.push({ source_id: item.source_id, error: String(e.message || e) });
+      continue;
+    }
+    const v = validate(output, schema);
+    if (!v.valid) {
+      results.push({ source_id: item.source_id, error: "invalid output", errors: v.errors });
+      continue;
+    }
+    const cardId = shortId();
+    output.proof_card.id = `proof_${cardId}`;
+    output.admin_tasks = output.admin_tasks.map((t, i) => ({ ...t, id: `task_${cardId}${i.toString(16)}` }));
+    cards.set(cardId, {
+      output,
+      createdAt: new Date().toISOString(),
+      isPublic: false,
+      elapsedMs: Date.now() - t0,
+      provider: PROVIDER_NAME,
+      source: { name: sourceName, source_id: item.source_id, occurred_at: item.occurred_at || null },
+    });
+    results.push({
+      source_id: item.source_id,
+      id: cardId,
+      output,
+      elapsedMs: Date.now() - t0,
+    });
+  }
+
+  send(res, 200, {
+    source: sourceName,
+    harvested: items.length,
+    processed: results.length,
+    skipped_unprocessed: Math.max(0, items.length - results.length),
+    items, // raw harvested signals (visible to user)
+    cards: results,
+  });
+}
+
 async function handleProofPage(_req, res, id) {
   const card = cards.get(id);
   const proofHtmlUrl = new URL("./public/proof.html", import.meta.url);
@@ -175,6 +240,8 @@ async function main() {
       if (req.method === "GET" && url.pathname === "/app.js")    return sendFile(res, new URL("./public/app.js", import.meta.url));
       if (req.method === "GET" && url.pathname === "/health")    return send(res, 200, { ok: true, provider: PROVIDER_NAME, cards: cards.size });
       if (req.method === "POST" && url.pathname === "/api/process") return handleProcess(req, res, provider, schema);
+      const harvestMatch = url.pathname.match(/^\/api\/harvest\/([a-z]+)$/);
+      if (req.method === "POST" && harvestMatch) return handleHarvest(req, res, harvestMatch[1], provider, schema);
       const shareMatch = url.pathname.match(/^\/api\/share\/([a-f0-9]{6,16})$/);
       if (req.method === "POST" && shareMatch) return handleShare(req, res, shareMatch[1]);
       const cardMatch = url.pathname.match(/^\/api\/cards\/([a-f0-9]{6,16})$/);

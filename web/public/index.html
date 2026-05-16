@@ -50,6 +50,40 @@
       <p id="status" class="status hidden"></p>
     </section>
 
+    <section class="card harvest-card">
+      <h2>Or harvest from a signal source</h2>
+      <p class="muted">Skip the typing. Let Kinetic pull recent activity and
+        ghostwrite Proof cards for the top few items.</p>
+
+      <div class="row tab-row" role="tablist">
+        <button class="ghost tab active" data-tab="github" type="button">GitHub</button>
+        <button class="ghost tab" data-tab="calendar" type="button">Calendar</button>
+      </div>
+
+      <div class="tab-panel" data-panel="github">
+        <label class="lbl">
+          <span>GitHub username <em>(public events only — no auth)</em></span>
+          <input id="gh-username" type="text" placeholder="e.g., torvalds" />
+        </label>
+        <div class="row">
+          <button id="gh-harvest" class="primary" type="button">Harvest recent activity →</button>
+        </div>
+      </div>
+
+      <div class="tab-panel hidden" data-panel="calendar">
+        <label class="lbl">
+          <span>Paste calendar lines <em>(one per line; supports <code>[ISO]</code> prefix)</em></span>
+          <textarea id="cal-text" rows="4" placeholder="[2026-05-16T15:00] 1:1 with Priya — async patterns review&#10;30m design review for new billing flow&#10;Customer discovery call with Vellum"></textarea>
+        </label>
+        <div class="row">
+          <button id="cal-harvest" class="primary" type="button">Harvest entries →</button>
+        </div>
+      </div>
+
+      <p id="harvest-status" class="status hidden"></p>
+      <div id="harvest-results" class="harvest-results"></div>
+    </section>
+
     <section id="result" class="hidden">
       <div class="card proof-card" id="proof"></div>
       <div class="card admin-card" id="admin"></div>
