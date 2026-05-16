@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kinetic.app/schemas/kinetic-output.schema.json",
+  "title": "KineticCaptureOutput",
+  "description": "Strict output contract for the Kinetic LLM capture pipeline. The LLM MUST return exactly one object matching this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["admin_tasks", "proof_card"],
+  "properties": {
+    "admin_tasks": {
+      "type": "array",
+      "description": "Action items extracted from the capture.",
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "status", "source"],
+        "properties": {
+          "id":     { "type": "string", "pattern": "^task_[a-z0-9]{6,12}$" },
+          "title":  { "type": "string", "minLength": 3, "maxLength": 120 },
+          "status": { "type": "string", "enum": ["done", "todo", "blocked"] },
+          "due":    { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "source": { "type": "string", "maxLength": 200 }
+        }
+      }
+    },
+    "proof_card": {
+      "type": "object",
+      "description": "A polished, shareable Proof-of-Skill card derived from the capture.",
+      "additionalProperties": false,
+      "required": ["id", "title", "summary", "tech_tags", "category", "visual_theme", "narrative", "time_to_resolution_minutes", "impact_metric"],
+      "properties": {
+        "id":      { "type": "string", "pattern": "^proof_[a-z0-9]{6,12}$" },
+        "title":   { "type": "string", "minLength": 4, "maxLength": 80 },
+        "summary": { "type": "string", "minLength": 20, "maxLength": 280 },
+        "tech_tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "maxItems": 12
+        },
+        "time_to_resolution_minutes": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Null when the capture does not credibly imply a resolution time."
+        },
+        "impact_metric": {
+          "type": ["string", "null"],
+          "maxLength": 120,
+          "description": "A short, source-grounded impact phrase. Null when the capture does not credibly imply impact."
+        },
+        "category":     { "type": "string", "enum": ["build", "fix", "design", "decision", "learning", "collab", "infra", "research", "other"] },
+        "visual_theme": { "type": "string", "enum": ["midnight", "graphite", "neon", "warm", "ocean"] },
+        "narrative":    { "type": "string", "minLength": 40, "maxLength": 600 }
+      }
+    }
+  }
+}

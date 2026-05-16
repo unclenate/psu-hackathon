@@ -9,8 +9,8 @@ exit criteria so "done" is unambiguous.
 
 | Milestone | Target Date | Owner | Status | Exit Criteria |
 | --------- | ----------- | ----- | ------ | ------------- |
-| M0 — Discovery distilled | 2026-05-16 | @unclenate | Active | Problem, personas, requirements, MVP scope, release intent, ADR-0001 committed |
-| M1 — LLM contract working | 2026-05-17 | @unclenate | Planned | Gemini call produces schema-valid `{admin_tasks[], proof_card{}}` on ≥9/10 fixed inputs |
+| M0 — Discovery distilled | 2026-05-16 | @unclenate | Done | Problem, personas, requirements, MVP scope, release intent, ADR-0001 committed |
+| M1 — LLM contract working | 2026-05-16 | @unclenate | Done (mock) / Pending (Gemini, Claude) | Schema, prompt, regression harness landed. Mock provider: 10/10 schema-valid. Real-provider runs pending API keys. |
 | M2 — End-to-end capture path | 2026-05-18 | @unclenate | Planned | Capture screen → LLM → rendered Proof card on the demo device |
 | M3 — Public share link | 2026-05-18 | @unclenate | Planned | Anonymous browser loads any generated Proof card via shared URL |
 | M4 — Demo dry-run passed | 2026-05-19 | @unclenate | Planned | 5 consecutive dry runs without manual intervention |
@@ -42,21 +42,48 @@ seed doc.
 - [x] `docs/product/release-intent.md` committed
 - [x] `docs/project/scope-plan.md` and `docs/project/milestones.md` committed
 - [x] `ADR-0001` capturing stack + composition decision committed
-- [ ] `harness.manifest.yaml` selected and validated
+- [x] `harness.manifest.yaml` selected and validated *(committed in 22fbbd8)*
 
 ---
 
 ### M1 — LLM contract working
 
 A fixed prompt + JSON schema reliably returns valid `{admin_tasks[], proof_card{}}` from
-Gemini. This is the highest-risk dependency in the build; lock it down first.
+the LLM. This is the highest-risk dependency in the build; locked down first.
 
 **Exit criteria:**
 
-- [ ] JSON schema for `admin_tasks[]` and `proof_card{}` finalized in repo
-- [ ] Prompt template committed under `prompts/`
-- [ ] Regression set of 10 fixed inputs runs locally; ≥9 validate against schema
-- [ ] Claude fallback path verified (≥8/10 valid) so demo can survive Gemini outage
+- [x] JSON schema for `admin_tasks[]` and `proof_card{}` finalized in repo
+      → [`schemas/kinetic-output.schema.json`](../../schemas/kinetic-output.schema.json)
+- [x] Prompt template committed under `prompts/`
+      → [`prompts/capture-to-output.md`](../../prompts/capture-to-output.md)
+- [x] Regression set of 10 fixed inputs runs locally; ≥9 validate against schema
+      → [`tests/regression-inputs.jsonl`](../../tests/regression-inputs.jsonl), mock provider 10/10
+- [x] Zero-dependency validator + runner so the harness works without `npm install`
+      → [`src/validate.mjs`](../../src/validate.mjs), [`src/regression.mjs`](../../src/regression.mjs)
+- [x] Gemini provider implemented with `response_schema` structured-output mode
+      → [`src/providers/gemini.mjs`](../../src/providers/gemini.mjs)
+- [x] Claude fallback provider implemented with `tool_use` structured-output mode
+      → [`src/providers/claude.mjs`](../../src/providers/claude.mjs)
+- [ ] Real-provider run: Gemini ≥9/10 on the regression set *(pending `GEMINI_API_KEY`)*
+- [ ] Real-provider run: Claude ≥8/10 on the regression set *(pending `ANTHROPIC_API_KEY`)*
+
+**Measured results (mock provider, 2026-05-16):**
+
+```
+Schema-valid:     10/10 (100.0%)
+Category match:   10/10 (100.0%)  (informational — not a gate)
+✓ M1 exit criterion MET for provider "mock"
+```
+
+**How to run the real-provider check:**
+
+```bash
+cp .env.example .env.local
+# fill in GEMINI_API_KEY, then:
+KINETIC_PROVIDER=gemini node src/regression.mjs
+KINETIC_PROVIDER=claude node src/regression.mjs
+```
 
 ---
 
