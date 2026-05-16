@@ -8,7 +8,11 @@
 
 import { readFile } from "node:fs/promises";
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+// `process` is shadowed by our exported function below, so capture the Node
+// global up front under a different name.
+const _node = globalThis.process;
+
+const DEFAULT_MODEL = _node.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
 const API_BASE = "https://api.anthropic.com/v1";
 
 async function loadPrompt() {
@@ -26,7 +30,7 @@ async function loadSchema() {
  * @returns {Promise<{ admin_tasks: any[], proof_card: any }>}
  */
 export async function process(input) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = _node.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY not set. Run with KINETIC_PROVIDER=mock or set the key.");
   }

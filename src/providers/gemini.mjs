@@ -10,7 +10,11 @@
 
 import { readFile } from "node:fs/promises";
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// `process` is shadowed by our exported function below, so capture the Node
+// global up front under a different name.
+const _node = globalThis.process;
+
+const DEFAULT_MODEL = _node.env.GEMINI_MODEL || "gemini-2.5-flash";
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 async function loadPrompt() {
@@ -24,17 +28,20 @@ async function loadSchema() {
 }
 
 /**
- * Strip JSON-Schema-only keywords that Gemini's response_schema does not accept,
- * yielding a Gemini-compatible schema object. This is a narrow conversion that
- * preserves type, properties, required, items, enum, minimum, maximum, and
- * description.
+ * Convert a JSON Schema fragment into the subset accepted by Gemini's
+ * response_schema. We allowlist only the keywords Gemini supports:
+ *   type, properties, required, items, enum, minimum, maximum, description, nullable
+ *
+ * Everything else (additionalProperties, pattern, minLength, maxLength,
+ * minItems, maxItems, $schema, $id, title, format) is dropped. Gemini will
+ * accept the trimmed schema; our local validator still enforces the full
+ * schema on the response (belt and suspenders).
  */
-function toGeminiSchema(schema) {
-  if (Array.isArray(schema)) return schema.map(toGeminiSchema);
-  if (!schema || typeof schema !== "object") return schema;
+function toGeminiSchema(node) {
+  if (Array.isArray(node)) return node.map(toGeminiSchema);
+  if (!node || typeof node !== "object") return node;
 
-  // Gemini does not accept type: ["integer", "null"] — collapse to nullable.
-  let type = schema.type;
+  let type = node.type;
   let nullable = false;
   if (Array.isArray(type)) {
     nullable = type.includes("null");
@@ -42,29 +49,25 @@ function toGeminiSchema(schema) {
   }
 
   const out = {};
-  if (type) out.type = type.toUpperCase ? type.toUpperCase() : type;
+  if (type) out.type = type.toUpperCase();
   if (nullable) out.nullable = true;
 
-  // Allowlist of keywords Gemini supports.
-  const allowed = ["properties", "required", "items", "enum", "minimum", "maximum", "description"];
-  for (const k of allowed) {
-    if (schema[k] !== undefined) out[k] = k === "properties" || k === "items"
-      ? toGeminiSchemaRecurse(schema[k])
-      : schema[k];
+  if (node.description !== undefined) out.description = node.description;
+  if (node.enum !== undefined) out.enum = node.enum;
+  if (node.minimum !== undefined) out.minimum = node.minimum;
+  if (node.maximum !== undefined) out.maximum = node.maximum;
+  if (node.required !== undefined) out.required = node.required;
+
+  if (node.properties && typeof node.properties === "object") {
+    out.properties = {};
+    for (const [k, v] of Object.entries(node.properties)) {
+      out.properties[k] = toGeminiSchema(v);
+    }
+  }
+  if (node.items !== undefined) {
+    out.items = toGeminiSchema(node.items);
   }
   return out;
-}
-
-function toGeminiSchemaRecurse(node) {
-  if (Array.isArray(node)) return node.map(toGeminiSchema);
-  if (node && typeof node === "object") {
-    const out = {};
-    for (const [k, v] of Object.entries(node)) {
-      out[k] = (v && typeof v === "object") ? toGeminiSchema(v) : v;
-    }
-    return out;
-  }
-  return node;
 }
 
 /**
@@ -72,7 +75,7 @@ function toGeminiSchemaRecurse(node) {
  * @returns {Promise<{ admin_tasks: any[], proof_card: any }>}
  */
 export async function process(input) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = _node.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY not set. Run with KINETIC_PROVIDER=mock or set the key.");
   }
@@ -95,17 +98,34 @@ export async function process(input) {
   };
 
   const url = `${API_BASE}/models/${DEFAULT_MODEL}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
+
+  // Retry transient errors (429 rate limit, 5xx) with exponential backoff.
+  // Free-tier limit on gemini-2.5-flash is 5 requests / minute, so 429 is
+  // expected during a 10-input run.
+  const MAX_RETRIES = 4;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("Gemini returned no text part");
+      return JSON.parse(text);
+    }
     const detail = await res.text().catch(() => "");
-    throw new Error(`Gemini ${res.status}: ${detail.slice(0, 500)}`);
+    const transient = res.status === 429 || res.status >= 500;
+    if (!transient || attempt === MAX_RETRIES) {
+      throw new Error(`Gemini ${res.status}: ${detail.slice(0, 500)}`);
+    }
+    // Honor the server-suggested retry delay if present, else exponential backoff.
+    const retryMatch = detail.match(/retry in\s+([\d.]+)s/i);
+    const waitMs = retryMatch
+      ? Math.ceil(parseFloat(retryMatch[1]) * 1000) + 500
+      : 1500 * Math.pow(2, attempt);
+    await new Promise((r) => setTimeout(r, waitMs));
   }
-  const json = await res.json();
-  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini returned no text part");
-  return JSON.parse(text);
+  throw new Error("Gemini: exhausted retries");
 }

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kinetic — Capture</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="capture">
+  <main class="shell">
+    <header class="hdr">
+      <div class="brand">
+        <div class="mark">⚡</div>
+        <div>
+          <h1>Kinetic</h1>
+          <p class="tag">Drop the chaos. Keep the proof.</p>
+        </div>
+      </div>
+      <div class="provider-pill" id="provider-pill">provider: …</div>
+    </header>
+
+    <section class="card capture-card">
+      <h2>New capture</h2>
+      <p class="muted">A messy note, a quick reaction, or a one-liner about something
+        you just did. Kinetic turns it into an admin task <strong>and</strong> a
+        polished Proof-of-Skill card.</p>
+
+      <label class="lbl">
+        <span>What just happened?</span>
+        <textarea
+          id="text"
+          rows="6"
+          placeholder="e.g., Finally got the webhook working after fighting with the API headers for three hours, ready for staging."
+          autofocus></textarea>
+      </label>
+
+      <label class="lbl">
+        <span>Image caption <em>(optional — describe a screenshot if you have one)</em></span>
+        <input
+          id="caption"
+          type="text"
+          placeholder="e.g., 401 Unauthorized in terminal, then a passing curl." />
+      </label>
+
+      <div class="row">
+        <button id="submit" class="primary">Process →</button>
+        <button id="sample" class="ghost" type="button">Use sample input</button>
+      </div>
+
+      <p id="status" class="status hidden"></p>
+    </section>
+
+    <section id="result" class="hidden">
+      <div class="card proof-card" id="proof"></div>
+      <div class="card admin-card" id="admin"></div>
+      <div class="card share-card">
+        <h2>Share publicly</h2>
+        <p class="muted">Generate a public link. Anyone with the link can view this
+          Proof card without signing in.</p>
+        <div class="row share-row">
+          <button id="share" class="primary">Generate share link</button>
+          <a id="share-url" class="share-url" target="_blank" rel="noopener"></a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="ftr">
+      <p>M2 demo · in-memory store · no auth · <a href="/health">/health</a></p>
+    </footer>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

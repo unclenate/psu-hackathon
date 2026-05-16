@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kinetic — Proof of Skill</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="proof">
+  <main class="shell">
+    <header class="hdr">
+      <div class="brand">
+        <div class="mark">⚡</div>
+        <div>
+          <h1>Kinetic</h1>
+          <p class="tag">Proof of skill · captured live</p>
+        </div>
+      </div>
+      <a href="/" class="provider-pill">try kinetic →</a>
+    </header>
+
+    <div class="card proof-card" id="proof"></div>
+    <div class="card admin-card" id="admin"></div>
+
+    <footer class="ftr">
+      <p>Captured {{CREATED_AT}} via Kinetic · <a href="/">Make your own</a></p>
+    </footer>
+  </main>
+
+  <script>
+    const CARD = {{CARD_JSON}};
+    const TASKS = {{TASKS_JSON}};
+  </script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
